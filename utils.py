@@ -2,6 +2,9 @@ import os
 import json
 import joblib
 import numpy as np
+import mlflow
+import mlflow.sklearn
+from mlflow.tracking import MlflowClient
 
 from config import AUDIO_CACHE, FEATURES_CACHE, MODELS_DIR
 
@@ -74,3 +77,19 @@ def load_model(model_class, model_name: str = None, save_option='default'):
         model.load_model(model_path)
 
     return model, best_params
+
+
+# === Utility: MLflow Helpers ===
+def list_top_mlflow_runs(metric="f1-score", top_n=5):
+    client = MlflowClient()
+    runs = mlflow.search_runs(experiment_ids=["0"], order_by=[f"metrics.weighted avg.{metric} DESC"])
+    return runs[["run_id", "params.model_type", f"metrics.weighted avg.{metric}"]].head(top_n)
+
+def load_mlflow_model(run_id):
+    client = MlflowClient()
+    run = client.get_run(run_id)
+    model = mlflow.sklearn.load_model(f"runs:/{run_id}/model")
+    params = run.data.params
+    metrics = run.data.metrics
+    return model, params, metrics
+
