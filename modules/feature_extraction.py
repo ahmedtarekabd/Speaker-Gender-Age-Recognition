@@ -4,7 +4,7 @@ import numpy as np
 from transformers import Wav2Vec2Model, Wav2Vec2Processor
 from config import FEATURES_CACHE
 from pathlib import Path
-from typing import Tuple, Union
+from typing import Tuple, Optional
 
 # === Feature Extraction ===
 class FeatureExtractor:
@@ -48,16 +48,31 @@ class FeatureExtractor:
     def extract(self, y: np.ndarray, sr: int = 16000, mode: str = "traditional", n_mfcc: int = 40) -> np.ndarray:
         return self.traditional(y, sr, n_mfcc=n_mfcc) if mode == "traditional" else self.wav2vec(y, sr)
 
-    def cache_features(self, X: np.ndarray, y: np.ndarray, mode: str, force_update: bool = False) -> None:
-        X_path = FEATURES_CACHE / f"X_{mode}.npy"
-        y_path = FEATURES_CACHE / f"y_{mode}.npy"
+    def cache_features(self, X: np.ndarray, y: np.ndarray, mode: str, index: str = "", force_update: bool = False) -> None:
+        X_path = FEATURES_CACHE / f"X_{mode}.npy" if index == "" else FEATURES_CACHE / f"X_{mode}_{index}.npy"
+        y_path = FEATURES_CACHE / f"y_{mode}.npy" if index == "" else FEATURES_CACHE / f"X_{mode}_{index}.npy"
         if force_update or not X_path.exists() or not y_path.exists():
             np.save(X_path, X)
             np.save(y_path, y)
 
-    def load_cached_features(self, mode: str) -> Tuple[Union[np.ndarray, None], Union[np.ndarray, None]]:
-        X_path = FEATURES_CACHE / f"X_{mode}.npy"
-        y_path = FEATURES_CACHE / f"y_{mode}.npy"
+    def load_cached_features(self, mode: str, index: str = "") -> Tuple[Optional[np.ndarray], Optional[np.ndarray]]:
+        X_path = FEATURES_CACHE / f"X_{mode}.npy" if index == "" else FEATURES_CACHE / f"X_{mode}_{index}.npy"
+        y_path = FEATURES_CACHE / f"y_{mode}.npy" if index == "" else FEATURES_CACHE / f"X_{mode}_{index}.npy"
         if X_path.exists() and y_path.exists():
             return np.load(X_path), np.load(y_path)
         return None, None
+    
+    def remove_cached_features(self, mode: str, index: str = "") -> Tuple[Optional[np.ndarray], Optional[np.ndarray]]:
+        X_path = FEATURES_CACHE / f"X_{mode}.npy" if index == "" else FEATURES_CACHE / f"X_{mode}_{index}.npy"
+        y_path = FEATURES_CACHE / f"y_{mode}.npy" if index == "" else FEATURES_CACHE / f"X_{mode}_{index}.npy"
+        if X_path.exists(): X_path.unlink()
+        if y_path.exists(): y_path.unlink()
+        return None, None
+    
+    def merge_features(self, mode: str) -> Tuple[Optional[np.ndarray], Optional[np.ndarray]]:
+        X = []
+        y = []
+        for file in FEATURES_CACHE.glob(f"X_{mode}_*.npy"):
+            X.append(np.load(file))
+            y.append(np.load(file.with_name(file.name.replace("X_", "y_"))))
+        return np.concatenate(X), np.concatenate(y) if y else None
