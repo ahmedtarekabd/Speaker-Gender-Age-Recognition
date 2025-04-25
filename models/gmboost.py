@@ -1,10 +1,10 @@
+from sklearn.ensemble import GradientBoostingClassifier
 import optuna
 from models.base_model import BaseModel
-import lightgbm as lgb
 from numpy import ndarray
 
-# === LightGBM Implementation ===
-class LightGBMModel(BaseModel):
+# === GradientBoosting Implementation ===
+class GradientBoostingModel(BaseModel):
     def __init__(self) -> None:
         super().__init__()
 
@@ -17,17 +17,13 @@ class LightGBMModel(BaseModel):
         y_val: ndarray
     ) -> float:
         params = {
-            "objective": "multiclass",
-            "num_class": len(set(y_train)),
-            "metric": "multi_logloss",
             "learning_rate": trial.suggest_float("learning_rate", 1e-3, 0.3, log=True),
-            "num_leaves": trial.suggest_int("num_leaves", 20, 150),
-            "max_depth": trial.suggest_int("max_depth", 3, 12),
-            "n_jobs": -1,
-            "verbosity": -1
+            "max_depth": trial.suggest_int("max_depth", 3, 10),
+            "n_estimators": trial.suggest_int("n_estimators", 100, 1000),
+            "subsample": trial.suggest_float("subsample", 0.5, 1.0)
         }
-        model = lgb.LGBMClassifier(**params)
-        model.fit(X_train, y_train, eval_set=[(X_val, y_val)])
+        model = GradientBoostingClassifier(**params)
+        model.fit(X_train, y_train)
         return model.score(X_val, y_val)
 
     def train(
@@ -41,9 +37,9 @@ class LightGBMModel(BaseModel):
     ) -> None:
         if use_optuna:
             study = optuna.create_study(direction="maximize")
-            study.optimize(lambda trial: self.objective(trial, X_train, y_train, X_val, y_val), n_trials=n_trials, n_jobs=-1)
+            study.optimize(lambda trial: self.objective(trial, X_train, y_train, X_val, y_val), n_trials=n_trials)
             self.best_params = study.best_params
-            self.model = lgb.LGBMClassifier(**self.best_params, verbosity=-1)
+            self.model = GradientBoostingClassifier(**self.best_params)
         else:
-            self.model = lgb.LGBMClassifier()
+            self.model = GradientBoostingClassifier()
         self.model.fit(X_train, y_train)
