@@ -2,6 +2,7 @@ from catboost import CatBoostClassifier
 import optuna
 import cupy as cp
 from numpy import ndarray
+import numpy as np
 from models.base_model import BaseModel
 from typing import Dict, Any
 
@@ -21,9 +22,9 @@ class CatBoostModel(BaseModel):
         params: Dict[str, int] = {
             "iterations": trial.suggest_int("iterations", 100, 1000),
             "learning_rate": trial.suggest_float("learning_rate", 1e-3, 1e-1, log=True),
-            "depth": trial.suggest_int("depth", 4, 10),
+            "depth": trial.suggest_int("depth", 10, 20),
             "l2_leaf_reg": trial.suggest_float("l2_leaf_reg", 1e-8, 100.0, log=True),
-            "task_type": trial.suggest_categorical("task_type", ["GPU" if cp.cuda.is_available() else "CPU"]),
+            "task_type": "GPU" if cp.cuda.is_available() else "CPU",
             "verbose": False
         }
         model = CatBoostClassifier(**params)
@@ -41,9 +42,12 @@ class CatBoostModel(BaseModel):
     ) -> None:
         if use_optuna:
             study = optuna.create_study(direction="maximize")
-            study.optimize(lambda trial: self.objective(trial, X_train, y_train, X_val, y_val), n_trials=n_trials)
+            # CatBoost returns device (cuda) already in use if n_jobs > 1
+            study.optimize(lambda trial: self.objective(trial, X_train, y_train, X_val, y_val), n_trials=n_trials) #, n_jobs=-1
             self.best_params: Dict[str, Any] = study.best_params
             self.model = CatBoostClassifier(**self.best_params, verbose=False)
         else:
             self.model = CatBoostClassifier(verbose=0)
-        self.model.fit(X_train, y_train)
+        X, y = np.vstack([X_train, X_val]), np.hstack([y_train, y_val])
+        self.model.fit(X, y)
+

@@ -2,6 +2,8 @@ from models.base_model import BaseModel
 from xgboost import XGBClassifier
 import optuna
 from numpy import ndarray
+import numpy as np
+import cupy as cp
 
 
 # === XGBoost Implementation ===
@@ -19,10 +21,13 @@ class XGBoostModel(BaseModel):
     ) -> float:
         params = {
             "learning_rate": trial.suggest_float("learning_rate", 1e-3, 0.3, log=True),
-            "max_depth": trial.suggest_int("max_depth", 3, 10),
+            "max_depth": trial.suggest_int("max_depth", 10, 20),
             "n_estimators": trial.suggest_int("n_estimators", 100, 1000),
             "subsample": trial.suggest_float("subsample", 0.5, 1.0),
-            "colsample_bytree": trial.suggest_float("colsample_bytree", 0.5, 1.0)
+            "colsample_bytree": trial.suggest_float("colsample_bytree", 0.5, 1.0),
+            "gamma": trial.suggest_float("gamma", 0, 5),
+            "min_child_weight": trial.suggest_int("min_child_weight", 1, 10),
+            "device": "cuda" if cp.cuda.is_available() else "cpu",
         }
         model = XGBClassifier(**params, use_label_encoder=False, eval_metric="mlogloss")
         model.fit(X_train, y_train, eval_set=[(X_val, y_val)], verbose=False)
@@ -39,9 +44,10 @@ class XGBoostModel(BaseModel):
     ) -> None:
         if use_optuna:
             study = optuna.create_study(direction="maximize")
-            study.optimize(lambda trial: self.objective(trial, X_train, y_train, X_val, y_val), n_trials=n_trials)
+            study.optimize(lambda trial: self.objective(trial, X_train, y_train, X_val, y_val), n_trials=n_trials, n_jobs=-1)
             self.best_params = study.best_params
             self.model = XGBClassifier(**self.best_params, use_label_encoder=False, eval_metric="mlogloss")
         else:
             self.model = XGBClassifier(use_label_encoder=False, eval_metric="mlogloss")
-        self.model.fit(X_train, y_train)
+        X, y = np.vstack([X_train, X_val]), np.hstack([y_train, y_val])
+        self.model.fit(X, y)

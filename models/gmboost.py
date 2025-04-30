@@ -2,6 +2,7 @@ from sklearn.ensemble import GradientBoostingClassifier
 import optuna
 from models.base_model import BaseModel
 from numpy import ndarray
+import numpy as np
 
 # === GradientBoosting Implementation ===
 class GradientBoostingModel(BaseModel):
@@ -20,7 +21,7 @@ class GradientBoostingModel(BaseModel):
             "learning_rate": trial.suggest_float("learning_rate", 1e-3, 0.3, log=True),
             "max_depth": trial.suggest_int("max_depth", 3, 10),
             "n_estimators": trial.suggest_int("n_estimators", 100, 1000),
-            "subsample": trial.suggest_float("subsample", 0.5, 1.0)
+            "subsample": trial.suggest_float("subsample", 0.5, 1.0),   
         }
         model = GradientBoostingClassifier(**params)
         model.fit(X_train, y_train)
@@ -37,9 +38,10 @@ class GradientBoostingModel(BaseModel):
     ) -> None:
         if use_optuna:
             study = optuna.create_study(direction="maximize")
-            study.optimize(lambda trial: self.objective(trial, X_train, y_train, X_val, y_val), n_trials=n_trials)
+            study.optimize(lambda trial: self.objective(trial, X_train, y_train, X_val, y_val), n_trials=n_trials, n_jobs=-1)
             self.best_params = study.best_params
             self.model = GradientBoostingClassifier(**self.best_params)
         else:
             self.model = GradientBoostingClassifier()
-        self.model.fit(X_train, y_train)
+        X, y = np.vstack([X_train, X_val]), np.hstack([y_train, y_val])
+        self.model.fit(X, y)

@@ -2,6 +2,7 @@ import optuna
 from models.base_model import BaseModel
 import lightgbm as lgb
 from numpy import ndarray
+import numpy as np
 
 # === LightGBM Implementation ===
 class LightGBMModel(BaseModel):
@@ -22,7 +23,7 @@ class LightGBMModel(BaseModel):
             "metric": "multi_logloss",
             "learning_rate": trial.suggest_float("learning_rate", 1e-3, 0.3, log=True),
             "num_leaves": trial.suggest_int("num_leaves", 20, 150),
-            "max_depth": trial.suggest_int("max_depth", 3, 12),
+            "max_depth": trial.suggest_int("max_depth", 10, 20),
             "n_jobs": -1,
             "verbosity": -1
         }
@@ -46,4 +47,5 @@ class LightGBMModel(BaseModel):
             self.model = lgb.LGBMClassifier(**self.best_params, verbosity=-1)
         else:
             self.model = lgb.LGBMClassifier()
-        self.model.fit(X_train, y_train)
+        X, y = np.vstack([X_train, X_val]), np.hstack([y_train, y_val])
+        self.model.fit(X, y)
