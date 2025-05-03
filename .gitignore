@@ -1,5 +1,6 @@
 data/
 catboost_info/
+mlruns/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
