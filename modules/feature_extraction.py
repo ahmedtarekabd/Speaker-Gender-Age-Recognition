@@ -15,8 +15,8 @@ class FeatureExtractor:
     def traditional(self, y: np.ndarray, sr: int = 16000, n_mfcc: int = 13) -> np.ndarray:
         # MFCCs (13 is standard for voice tasks)
         mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=n_mfcc)
-        delta = librosa.feature.delta(mfcc)
-        delta2 = librosa.feature.delta(mfcc, order=2)
+        # delta = librosa.feature.delta(mfcc)
+        # delta2 = librosa.feature.delta(mfcc, order=2)
 
         # Chroma
         chroma = librosa.feature.chroma_stft(y=y, sr=sr)
@@ -24,8 +24,8 @@ class FeatureExtractor:
         # Spectral Contrast
         contrast = librosa.feature.spectral_contrast(y=y, sr=sr)
 
-        # Tonnetz
-        tonnetz = librosa.feature.tonnetz(y=librosa.effects.harmonic(y), sr=sr)
+        # # Tonnetz
+        # tonnetz = librosa.feature.tonnetz(y=librosa.effects.harmonic(y), sr=sr)
 
         # RMS Energy & ZCR
         rmse = librosa.feature.rms(y=y)
@@ -34,20 +34,45 @@ class FeatureExtractor:
         # Spectral Centroid
         centroid = librosa.feature.spectral_centroid(y=y, sr=sr)
 
+        #* PROSODIC FEATURES
         # Fundamental frequency (F0) using YIN
         try:
             f0 = librosa.yin(y, fmin=50, fmax=500, sr=sr)
             f0_mean = np.nanmean(f0)
             f0_std = np.nanstd(f0)
+            f0_max = np.nanmax(f0)
         except:
-            f0_mean = 0
-            f0_std = 0
+            f0_mean = f0_std = f0_max = 0
+
+        # Loudness (Log energy)
+        loudness = librosa.amplitude_to_db(np.abs(librosa.stft(y)), ref=np.max)
+        loudness_mean = np.mean(loudness)
+        loudness_std = np.std(loudness)
+
+        # Rhythm / Duration
+        intervals = librosa.effects.split(y, top_db=30)
+        durations = [(e - s) / sr for s, e in intervals]
+        if durations:
+            dur_mean = np.mean(durations)
+            dur_std = np.std(durations)
+            dur_count = len(durations)
+        else:
+            dur_mean = dur_std = dur_count = 0
+
 
         return np.concatenate([
-            mfcc.mean(axis=1), delta.mean(axis=1), delta2.mean(axis=1),
-            chroma.mean(axis=1), contrast.mean(axis=1), tonnetz.mean(axis=1),
-            [rmse.mean()], [zcr.mean()], [centroid.mean()],
-            [f0_mean], [f0_std]
+            mfcc.mean(axis=1),
+            # delta.mean(axis=1),
+            # delta2.mean(axis=1),
+            chroma.mean(axis=1),
+            contrast.mean(axis=1),
+            # tonnetz.mean(axis=1),
+            [rmse.mean()],
+            [zcr.mean()],
+            [centroid.mean()],
+            [f0_mean, f0_std, f0_max],
+            [loudness_mean, loudness_std],
+            [dur_mean, dur_std, dur_count],
         ])
 
 
@@ -63,22 +88,22 @@ class FeatureExtractor:
         return self.traditional(y, sr, n_mfcc=n_mfcc) if mode == "traditional" else self.wav2vec(y, sr)
 
     def cache_features(self, X: np.ndarray, y: np.ndarray, mode: str, version: Optional[int] = None, force_update: bool = False) -> None:
-        X_path = FEATURES_CACHE / f"X_{mode}.npy" if version else FEATURES_CACHE / f"X_{mode}_v{version}.npy"
-        y_path = FEATURES_CACHE / f"y_{mode}.npy" if version else FEATURES_CACHE / f"X_{mode}_v{version}.npy"
+        X_path = FEATURES_CACHE / f"X_{mode}.npy" if version is None else FEATURES_CACHE / f"X_{mode}_v{version}.npy"
+        y_path = FEATURES_CACHE / f"y_{mode}.npy" if version is None else FEATURES_CACHE / f"X_{mode}_v{version}.npy"
         if force_update or not X_path.exists() or not y_path.exists():
             np.save(X_path, X)
             np.save(y_path, y)
 
     def load_cached_features(self, mode: str, version: Optional[int] = None) -> Tuple[Optional[np.ndarray], Optional[np.ndarray]]:
-        X_path = FEATURES_CACHE / f"X_{mode}.npy" if not version else FEATURES_CACHE / f"X_{mode}_v{version}.npy"
-        y_path = FEATURES_CACHE / f"y_{mode}.npy" if not version else FEATURES_CACHE / f"y_{mode}_v{version}.npy"
+        X_path = FEATURES_CACHE / f"X_{mode}.npy" if version is None else FEATURES_CACHE / f"X_{mode}_v{version}.npy"
+        y_path = FEATURES_CACHE / f"y_{mode}.npy" if version is None else FEATURES_CACHE / f"y_{mode}_v{version}.npy"
         if X_path.exists() and y_path.exists():
             return np.load(X_path), np.load(y_path)
         return None, None
     
     def remove_cached_features(self, mode: str, version: Optional[int] = None) -> Tuple[Optional[np.ndarray], Optional[np.ndarray]]:
-        X_path = FEATURES_CACHE / f"X_{mode}.npy" if not version else FEATURES_CACHE / f"X_{mode}_v{version}.npy"
-        y_path = FEATURES_CACHE / f"y_{mode}.npy" if not version else FEATURES_CACHE / f"y_{mode}_v{version}.npy"
+        X_path = FEATURES_CACHE / f"X_{mode}.npy" if version is None else FEATURES_CACHE / f"X_{mode}_v{version}.npy"
+        y_path = FEATURES_CACHE / f"y_{mode}.npy" if version is None else FEATURES_CACHE / f"y_{mode}_v{version}.npy"
         if X_path.exists(): X_path.unlink()
         if y_path.exists(): y_path.unlink()
         return None, None
