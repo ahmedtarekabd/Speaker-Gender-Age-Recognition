@@ -20,10 +20,10 @@ class CatBoostModel(BaseModel):
         y_val: ndarray
     ) -> float:
         params: Dict[str, int] = {
-            "iterations": trial.suggest_int("iterations", 100, 1000),
-            "learning_rate": trial.suggest_float("learning_rate", 1e-3, 1e-1, log=True),
-            "depth": trial.suggest_int("depth", 10, 20),
-            "l2_leaf_reg": trial.suggest_float("l2_leaf_reg", 1e-8, 100.0, log=True),
+            "iterations": trial.suggest_int("iterations", 300, 500),
+            "learning_rate": trial.suggest_float("learning_rate", 1e-2, 1e-1, log=True),
+            "depth": trial.suggest_int("depth", 10, 15),
+            "l2_leaf_reg": trial.suggest_float("l2_leaf_reg", 1e-5, 1.0, log=True),
             "task_type": "GPU" if cp.cuda.is_available() else "CPU",
             "verbose": False
         }

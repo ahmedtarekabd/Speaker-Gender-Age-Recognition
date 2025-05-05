@@ -3,6 +3,8 @@ from models.base_model import BaseModel
 import lightgbm as lgb
 from numpy import ndarray
 import numpy as np
+from sklearn.utils import class_weight
+
 
 # === LightGBM Implementation ===
 class LightGBMModel(BaseModel):
@@ -21,14 +23,15 @@ class LightGBMModel(BaseModel):
             "objective": "multiclass",
             "num_class": len(set(y_train)),
             "metric": "multi_logloss",
-            "learning_rate": trial.suggest_float("learning_rate", 1e-3, 0.3, log=True),
-            "num_leaves": trial.suggest_int("num_leaves", 20, 150),
-            "max_depth": trial.suggest_int("max_depth", 10, 20),
+            "learning_rate": trial.suggest_float("learning_rate", 1e-2, 3e-1, log=True),
+            "num_leaves": trial.suggest_int("num_leaves", 30, 120),
+            "max_depth": trial.suggest_int("max_depth", 10, 15),
             "n_jobs": -1,
             "verbosity": -1
         }
         model = lgb.LGBMClassifier(**params)
-        model.fit(X_train, y_train, eval_set=[(X_val, y_val)])
+        class_weights = class_weight.compute_sample_weight('balanced', y=y_train)
+        model.fit(X_train, y_train, eval_set=[(X_val, y_val)], sample_weight=class_weights)
         return model.score(X_val, y_val)
 
     def train(
@@ -48,4 +51,5 @@ class LightGBMModel(BaseModel):
         else:
             self.model = lgb.LGBMClassifier()
         X, y = np.vstack([X_train, X_val]), np.hstack([y_train, y_val])
-        self.model.fit(X, y)
+        class_weights = class_weight.compute_sample_weight('balanced', y=y)
+        self.model.fit(X, y, sample_weight=class_weights)
