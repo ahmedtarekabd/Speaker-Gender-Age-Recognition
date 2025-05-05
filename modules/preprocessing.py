@@ -2,6 +2,7 @@ import numpy as np
 import librosa
 from config import PREPROCESSED_CACHE
 import noisereduce as nr
+from sklearn.model_selection import train_test_split
 from typing import Optional
 
 # === Preprocessing ===
@@ -44,3 +45,8 @@ class AudioPreprocessor:
     def load_cached_preprocessed(self, idx: str) -> Optional[np.ndarray]:
         path = PREPROCESSED_CACHE / f"{idx}.npy"
         return np.load(path) if path.exists() else None
+    
+    def split_data(self, X, y, train_size: float = 0.75, val_size: float = 0.1, random_state: int = 42):
+        X_train, X_temp, y_train, y_temp = train_test_split(X, y, train_size=train_size, random_state=random_state, stratify=y)
+        X_val, X_test, y_val, y_test = train_test_split(X_temp, y_temp, train_size=val_size/(1-train_size), random_state=random_state)
+        return X_train, y_train, X_val, y_val, X_test, y_test
