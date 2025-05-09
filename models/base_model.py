@@ -114,7 +114,8 @@ class BaseModel:
         #     raise ValueError("Either 'run_id' or 'experiment_id' or 'experiment_name' must be provided.")
     
         # Load the model and metadata
-        self.model = mlflow.pyfunc.load_model(mlflow.get_tracking_uri() + f"/{experiment_id}/{run.info.run_id}/artifacts/model")
+        # self.model = mlflow.pyfunc.load_model(mlflow.get_tracking_uri() + f"/{experiment_id}/{run.info.run_id}/artifacts/model")
+        self.model = mlflow.pyfunc.load_model(f"runs:/{run.info.run_id}/model")
         self.best_params = run.data.params
         self.metrics = run.data.metrics
         self.model_name = run.info.run_name
