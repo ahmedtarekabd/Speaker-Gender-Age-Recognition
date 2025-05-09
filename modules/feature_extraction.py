@@ -1,6 +1,7 @@
 import torch
 import librosa
 import numpy as np
+import parselmouth
 from transformers import Wav2Vec2Model, Wav2Vec2Processor
 from config import FEATURES_CACHE
 from pathlib import Path
@@ -9,8 +10,9 @@ from typing import Tuple, Optional
 # === Feature Extraction ===
 class FeatureExtractor:
     def __init__(self) -> None:
-        self.wav2vec_model = Wav2Vec2Model.from_pretrained("facebook/wav2vec2-base-960h")
-        self.wav2vec_proc = Wav2Vec2Processor.from_pretrained("facebook/wav2vec2-base-960h")
+        # self.wav2vec_model = Wav2Vec2Model.from_pretrained("facebook/wav2vec2-base-960h")
+        # self.wav2vec_proc = Wav2Vec2Processor.from_pretrained("facebook/wav2vec2-base-960h")
+        pass
 
     def traditional(self, y: np.ndarray, sr: int = 16000, n_mfcc: int = 13) -> np.ndarray:
         # MFCCs (13 is standard for voice tasks)
@@ -59,6 +61,12 @@ class FeatureExtractor:
         else:
             dur_mean = dur_std = dur_count = 0
 
+        # Formant Features
+        formants = self.extract_formants(y, sr)
+        f1_mean = formants["f1_mean"]
+        f1_std = formants["f1_std"]
+        f2_mean = formants["f2_mean"]
+        f2_std = formants["f2_std"]
 
         return np.concatenate([
             mfcc.mean(axis=1),
@@ -73,8 +81,36 @@ class FeatureExtractor:
             [f0_mean, f0_std, f0_max],
             [loudness_mean, loudness_std],
             [dur_mean, dur_std, dur_count],
+            [f1_mean, f1_std, f2_mean, f2_std],
         ])
 
+    def extract_formants(self, audio: np.ndarray, sr: int = 16000) -> dict:
+        try:
+            sound = parselmouth.Sound(audio, sampling_frequency=sr)
+            formant = sound.to_formant_burg()
+
+            duration = sound.duration
+            times = np.linspace(0.01, duration - 0.01, 100)
+            f1_list, f2_list = [], []
+
+            for t in times:
+                f1 = formant.get_value_at_time(1, t)
+                f2 = formant.get_value_at_time(2, t)
+                if f1: f1_list.append(f1)
+                if f2: f2_list.append(f2)
+
+            return {
+                "f1_mean": np.nanmean(f1_list) if f1_list else 0,
+                "f1_std": np.nanstd(f1_list) if f1_list else 0,
+                "f2_mean": np.nanmean(f2_list) if f2_list else 0,
+                "f2_std": np.nanstd(f2_list) if f2_list else 0,
+            }
+        except Exception as e:
+            print(f"[Formant Error] {e}")
+            return {
+                "f1_mean": 0, "f1_std": 0,
+                "f2_mean": 0, "f2_std": 0,
+            }
 
     def wav2vec(self, y: np.ndarray, sr: int = 16000) -> np.ndarray:
         if sr != 16000:
@@ -89,7 +125,7 @@ class FeatureExtractor:
 
     def cache_features(self, X: np.ndarray, y: np.ndarray, mode: str, version: Optional[int] = None, force_update: bool = False) -> None:
         X_path = FEATURES_CACHE / f"X_{mode}.npy" if version is None else FEATURES_CACHE / f"X_{mode}_v{version}.npy"
-        y_path = FEATURES_CACHE / f"y_{mode}.npy" if version is None else FEATURES_CACHE / f"X_{mode}_v{version}.npy"
+        y_path = FEATURES_CACHE / f"y_{mode}.npy" if version is None else FEATURES_CACHE / f"y_{mode}_v{version}.npy"
         if force_update or not X_path.exists() or not y_path.exists():
             np.save(X_path, X)
             np.save(y_path, y)
@@ -117,5 +153,9 @@ class FeatureExtractor:
         return np.concatenate(X), np.concatenate(y) if y else None
 
     def get_latest_version(self, mode: str) -> int:
-        versions = [int(file.stem.split("_v")[-1]) for file in FEATURES_CACHE.glob(f"X_{mode}_*.npy")]
+        versions = [
+            int(file.stem.split("_v")[-1]) 
+            for file in FEATURES_CACHE.glob(f"X_{mode}_*.npy") 
+            if "_v" in file.stem and file.stem.split("_v")[-1].isdigit()
+        ]
         return max(versions) if versions else 0
