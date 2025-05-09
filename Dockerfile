@@ -3,7 +3,7 @@ FROM python:3.10-slim
 
 WORKDIR /app
 
-COPY requirements.txt requirements.txt
+COPY requirements_docker.txt requirements_docker.txt
 RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir -r requirements_docker.txt
 
 COPY . .

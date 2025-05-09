@@ -1,4 +1,5 @@
 data/audios/
+data/preprocessed_cache/
 catboost_info/
 mlruns/
 
