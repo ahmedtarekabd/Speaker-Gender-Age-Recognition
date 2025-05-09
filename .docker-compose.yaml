@@ -1,0 +1,10 @@
+version: "3.8"
+services:
+  inference:
+    build:
+      context: .
+    image: audio-infer
+    volumes:
+      - ./data/data_20_files:/data
+      - ./data/output:/results
+    command: ["--team_id", "8"]

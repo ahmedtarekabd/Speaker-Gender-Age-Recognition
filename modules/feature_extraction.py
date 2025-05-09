@@ -1,4 +1,4 @@
-import torch
+# import torch
 import librosa
 import numpy as np
 import parselmouth
@@ -112,13 +112,13 @@ class FeatureExtractor:
                 "f2_mean": 0, "f2_std": 0,
             }
 
-    def wav2vec(self, y: np.ndarray, sr: int = 16000) -> np.ndarray:
-        if sr != 16000:
-            y = librosa.resample(y, orig_sr=sr, target_sr=16000)
-        input_values: torch.Tensor = self.wav2vec_proc(y, return_tensors="pt", sampling_rate=16000).input_values
-        with torch.no_grad():
-            embeddings: torch.Tensor = self.wav2vec_model(input_values).last_hidden_state
-        return embeddings.mean(dim=1).squeeze().numpy()
+    # def wav2vec(self, y: np.ndarray, sr: int = 16000) -> np.ndarray:
+    #     if sr != 16000:
+    #         y = librosa.resample(y, orig_sr=sr, target_sr=16000)
+    #     input_values: torch.Tensor = self.wav2vec_proc(y, return_tensors="pt", sampling_rate=16000).input_values
+    #     with torch.no_grad():
+    #         embeddings: torch.Tensor = self.wav2vec_model(input_values).last_hidden_state
+    #     return embeddings.mean(dim=1).squeeze().numpy()
 
     def extract(self, y: np.ndarray, sr: int = 16000, mode: str = "traditional", n_mfcc: int = 40) -> np.ndarray:
         return self.traditional(y, sr, n_mfcc=n_mfcc) if mode == "traditional" else self.wav2vec(y, sr)

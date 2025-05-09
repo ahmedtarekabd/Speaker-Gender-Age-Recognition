@@ -59,6 +59,16 @@ class ModelPipeline:
 
         return metrics
 
+    def load_model_from_registry(self, model_name: str, version: int = None) -> None:
+        self.model.load_model_from_registry(model_name, version)
+    
+    def register_model(
+        self, 
+        run_id: str, 
+        model_name: str = None, 
+        tags: Dict[str, str] = None
+    ) -> None:
+        self.model.register_model(run_id, model_name, tags)
 
     def predict(self, X: np.ndarray) -> np.ndarray:
         return self.model.predict(X)

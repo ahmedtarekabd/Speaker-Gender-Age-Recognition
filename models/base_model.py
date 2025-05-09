@@ -120,3 +120,34 @@ class BaseModel:
         self.metrics = run.data.metrics
         self.model_name = run.info.run_name
         self.run_id = run.info.run_id
+
+    def register_model(
+        self, 
+        run_id: str, 
+        model_name: str = None, 
+        tags: Dict[str, str] = None
+    ) -> None:
+        """
+        Registers a model in MLflow's Model Registry.
+
+        Args:
+            run_id (str): The ID of the MLflow run containing the model to register.
+            model_name (str): The name to assign to the registered model.
+            description (str, optional): A description for the registered model. Defaults to None.
+            tags (dict, optional): Tags to associate with the registered model. Defaults to None.
+        """
+        mlflow.register_model(
+            model_uri=f"runs:/{run_id}/model", 
+            name=model_name or self.model_name, 
+            tags=tags
+        )
+    
+    def load_model_from_registry(self, model_name: str, version: int = None) -> None:
+        """
+        Loads a model from MLflow's Model Registry.
+
+        Args:
+            model_name (str): The name of the model to load.
+            version (int, optional): The version of the model to load. If None, the latest version is loaded. Defaults to None.
+        """
+        self.model = mlflow.pyfunc.load_model(model_uri=f"models:/{model_name}/{version if version else 'latest'}")
