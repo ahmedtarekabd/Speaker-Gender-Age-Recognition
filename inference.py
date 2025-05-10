@@ -24,31 +24,30 @@ def run_batch_inference(model, input_folder, output_folder, sr=16000, feature_mo
     # Sort files in the correct order
     files = sorted(glob(os.path.join(input_folder, "*")), key=lambda x: int(Path(x).stem))
 
-    results = []
-    X = []
+    # Overwrite if exsists
+    results_path = os.path.join(output_folder, "results.txt")
+    time_path = os.path.join(output_folder, "time.txt")
+    with open(results_path, "w") as f: pass
+    with open(time_path, "w") as f: pass
+
+    pred = 0
     for file in files:
+        # Measure inference time
+        start_time = time.time()
         y = preprocessor.preprocess(preprocessor.load_audio(str(file), sr=sr))
         if y is not None:
             x = extractor.extract(y, sr=sr, mode=feature_mode, n_mfcc=20)
-            X.append(x)
-            results.append(Path(file).name)
+            pred = model.predict([x])[0]
+        end_time = time.time()
+        # Save results to results.txt
+        with open(results_path, "a") as f:
+            f.write(f"{pred}\n")
 
-    # Measure inference time
-    start_time = time.time()
-    pred = model.predict(X)
-    end_time = time.time()
-
-    # Save results to results.txt
-    results_path = os.path.join(output_folder, "results.txt")
-    with open(results_path, "w") as f:
-        for file, prediction in zip(results, pred):
-            f.write(f"{file},{prediction}\n")
+        # Save inference time to time.txt
+        with open(time_path, "a") as f:
+            f.write(f"{end_time - start_time:.6f}\n")
+    
     print(f"✅ Results saved to {results_path}")
-
-    # Save inference time to time.txt
-    time_path = os.path.join(output_folder, "time.txt")
-    with open(time_path, "w") as f:
-        f.write(f"{end_time - start_time:.6f}\n")
     print(f"✅ Inference time saved to {time_path}")
 
 def main(input_path, model_name, output_folder):
