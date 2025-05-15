@@ -6,6 +6,7 @@ from sklearn.model_selection import train_test_split
 from typing import Optional
 from audiomentations import Compose, AddGaussianNoise, TimeStretch, PitchShift, Shift
 from imblearn.combine import SMOTETomek
+from imblearn.under_sampling import RandomUnderSampler
 import random
 from collections import Counter
 
@@ -78,7 +79,7 @@ class AudioPreprocessor:
             return None
     
     def split_data(self, X, y, train_size: float = 0.75, val_size: float = 0.1, random_state: int = 42, stratify: bool = True, 
-                    apply_smote: bool = False, smote_percentage: float = 0.7, verbose = True) -> tuple:
+                    apply_smote: bool = False, smote_percentage: float = 0.7, apply_undersample: bool = False, verbose = True) -> tuple:
         
         # First split: train vs (val + test)
         stratify_option = y if stratify else None
@@ -110,5 +111,13 @@ class AudioPreprocessor:
             X_train, y_train = resampler.fit_resample(X_train, y_train)
             
             if verbose: print(f"[INFO] Class distribution after SMOTE: {Counter(y_train)}")
+
+        if apply_undersample:
+            if verbose: print(f"[INFO] Class distribution before undersampling: {Counter(y_train)}")
+            
+            undersampler = RandomUnderSampler(random_state=random_state)
+            X_train, y_train = undersampler.fit_resample(X_train, y_train)
+            
+            if verbose: print(f"[INFO] Class distribution after undersampling: {Counter(y_train)}")
 
         return X_train, y_train, X_val, y_val, X_test, y_test
